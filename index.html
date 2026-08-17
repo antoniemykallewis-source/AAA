@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AAA Auto Recycling · Vessel Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;900&family=Playfair+Display:ital,wght@1,400;1,600&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lime:#E9FF00;
+  --ink:#0B0B0C;
+  --paper:#F1F1EE;
+  --grid:rgba(11,11,12,.07);
+  --grid2:rgba(11,11,12,.035);
+  --mono:'Martian Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --cst:'Playfair Display',Georgia,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:var(--disp);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid2) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid2) 1px,transparent 1px);
+  background-size:96px 96px,96px 96px,24px 24px,24px 24px;
+  cursor:none;
+}
+@media (pointer:coarse){body{cursor:auto}#cur,#curdot{display:none}}
+
+/* cursor */
+#cur{position:fixed;width:34px;height:34px;border:2px solid var(--ink);border-radius:50%;
+  pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .22s,height .22s,background .22s,border-color .22s}
+#cur.hot{width:58px;height:58px;background:var(--lime);border-color:var(--lime);mix-blend-mode:normal}
+#curdot{position:fixed;width:5px;height:5px;background:var(--ink);border-radius:50%;pointer-events:none;z-index:10000;transform:translate(-50%,-50%)}
+
+/* progress */
+#bar{position:fixed;top:0;left:0;height:5px;background:var(--lime);z-index:900;width:0;transition:width .5s cubic-bezier(.2,.8,.2,1);
+  border-bottom:1px solid var(--ink)}
+
+/* wipe */
+#wipe{position:fixed;inset:0;background:var(--lime);z-index:800;transform:scaleY(0);transform-origin:bottom;pointer-events:none}
+#wipe.go{animation:wipe .62s cubic-bezier(.7,0,.3,1)}
+@keyframes wipe{0%{transform:scaleY(0);transform-origin:bottom}
+  45%{transform:scaleY(1);transform-origin:bottom}
+  46%{transform:scaleY(1);transform-origin:top}
+  100%{transform:scaleY(0);transform-origin:top}}
+
+/* slides */
+.slide{position:fixed;inset:0;padding:5.5vh 6vw 12vh;display:none;flex-direction:column;justify-content:center;overflow:hidden}
+.slide.on{display:flex}
+
+/* header system */
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  display:flex;align-items:center;gap:14px;margin-bottom:26px;opacity:.75}
+.eyebrow .num{width:30px;height:30px;border:2px solid var(--lime);border-radius:50%;
+  display:grid;place-items:center;font-size:11px;color:var(--ink);flex:none}
+h1{font-family:var(--disp);font-weight:900;text-transform:uppercase;
+  font-size:clamp(38px,7.1vw,104px);line-height:.83;letter-spacing:-.048em;margin-bottom:8px}
+h1 .w{display:inline-block;opacity:0;transform:translateY(.42em);animation:up .62s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes up{to{opacity:1;transform:none}}
+.cst{font-family:var(--cst);font-style:italic;font-weight:400;text-transform:none;letter-spacing:-.012em;
+  display:inline-block;position:relative;padding:0 .16em;margin-top:-.14em;white-space:nowrap}
+.cst::before{content:'';position:absolute;left:0;right:0;bottom:.13em;height:.42em;background:var(--lime);z-index:-1}
+.sub{font-size:clamp(14px,1.32vw,19px);line-height:1.5;max-width:64ch;margin-top:22px;opacity:.86}
+
+/* footer nav */
+.count{position:fixed;left:6vw;bottom:4.4vh;font-family:var(--mono);font-size:11px;letter-spacing:.2em;z-index:700}
+.nav{position:fixed;right:6vw;bottom:4vh;display:flex;gap:9px;z-index:700}
+.nav button{width:46px;height:46px;border:2px solid var(--ink);background:transparent;cursor:none;
+  display:grid;place-items:center;font-size:17px;transition:background .18s,color .18s}
+.nav button:hover{background:var(--lime)}
+.brand{position:fixed;right:6vw;top:4.6vh;font-family:var(--mono);font-size:10px;letter-spacing:.24em;opacity:.55;z-index:700}
+
+/* stat blocks */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:2px;margin-top:34px;max-width:1180px}
+.sblock{border-top:4px solid var(--ink);padding:16px 16px 20px 0}
+.sblock .big{font-weight:900;font-size:clamp(34px,4.6vw,66px);line-height:.9;letter-spacing:-.04em}
+.sblock .cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;margin-top:11px;opacity:.68;line-height:1.6}
+.sblock.hi{border-top-color:var(--lime)}
+.sblock.hi .big{background:var(--lime);display:inline-block;padding:0 .1em;margin-left:-.1em}
+
+/* graded rows */
+.rows{margin-top:26px;max-width:1180px;max-height:52vh;overflow:auto}
+.row{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;
+  border-bottom:1px solid rgba(11,11,12,.16);padding:13px 0}
+.row .lbl{font-weight:600;font-size:clamp(13px,1.28vw,17px)}
+.row .det{font-family:var(--mono);font-size:10px;letter-spacing:.1em;opacity:.62;margin-top:5px;text-transform:uppercase;line-height:1.6}
+.chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;padding:6px 12px;text-transform:uppercase;white-space:nowrap;flex:none}
+.chip.dead{background:var(--ink);color:var(--paper)}
+.chip.weak{background:var(--lime);color:var(--ink)}
+.chip.strong{border:2px solid var(--ink);color:var(--ink)}
+.summary{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;margin-top:20px;opacity:.8}
+
+/* the ad slide */
+.adbox{margin-top:26px;max-width:940px;border:2px solid var(--ink);background:#fff;padding:26px 28px;position:relative}
+.adbox .tag{position:absolute;top:-13px;left:22px;background:var(--lime);border:2px solid var(--ink);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;padding:4px 10px;text-transform:uppercase}
+.adbox .sp{font-family:var(--mono);font-size:10px;letter-spacing:.14em;opacity:.55;text-transform:uppercase;margin-bottom:10px}
+.adbox .headline{color:#1a0dab;font-size:clamp(17px,2vw,25px);font-weight:600;margin-bottom:5px}
+.adbox .url{color:#0d652d;font-size:12.5px;margin-bottom:11px;font-family:var(--mono)}
+.adbox .copy{font-size:clamp(14px,1.6vw,19px);line-height:1.5}
+.adbox .copy mark{background:var(--lime);padding:0 3px}
+.adnote{margin-top:20px;font-size:clamp(13px,1.3vw,17px);max-width:70ch;line-height:1.55}
+
+/* marquee */
+.marq{margin-top:26px;overflow:hidden;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);padding:15px 0;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+.marq .track{display:flex;gap:52px;width:max-content;animation:slide 46s linear infinite}
+.marq:hover .track{animation-play-state:paused}
+@keyframes slide{to{transform:translateX(-50%)}}
+.marq q{font-family:var(--cst);font-style:italic;font-size:clamp(15px,1.7vw,23px);white-space:nowrap}
+.marq q::before,.marq q::after{content:''}
+
+/* two col */
+.two{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;margin-top:24px;align-items:start}
+@media(max-width:900px){.two{grid-template-columns:1fr;gap:24px}}
+.bigq{font-family:var(--cst);font-style:italic;font-size:clamp(21px,2.9vw,42px);line-height:1.18;
+  border-left:5px solid var(--lime);padding-left:20px}
+.attrib{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;margin-top:15px;opacity:.65;padding-left:25px;line-height:1.7}
+.theme{border-top:2px solid var(--ink);padding:13px 0 15px}
+.theme .t{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:7px}
+.theme .q{font-family:var(--cst);font-style:italic;font-size:clamp(14px,1.5vw,19px);line-height:1.35}
+
+/* loop */
+.loop{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px;margin-top:34px;max-width:1240px}
+.step{border:2px solid var(--ink);padding:19px 17px;position:relative;background:rgba(255,255,255,.45)}
+.step .n{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;opacity:.5;margin-bottom:11px}
+.step .h{font-weight:900;text-transform:uppercase;font-size:clamp(15px,1.55vw,21px);line-height:1;letter-spacing:-.02em;margin-bottom:9px}
+.step .d{font-size:12.5px;line-height:1.5;opacity:.8}
+.step:nth-child(1){background:var(--lime)}
+.arrowloop{text-align:center;margin-top:20px;font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;opacity:.72}
+.arrowloop span{display:inline-block;animation:pulse 1.9s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(7px);opacity:1}}
+
+/* scripts */
+.scriptwrap{display:grid;grid-template-columns:1fr 300px;gap:38px;margin-top:22px;align-items:start}
+@media(max-width:960px){.scriptwrap{grid-template-columns:1fr}.phone{display:none}}
+.scards{display:flex;flex-direction:column;gap:2px}
+.scard{border:2px solid var(--ink);padding:15px 18px;cursor:none;transition:background .18s,transform .18s;background:rgba(255,255,255,.5)}
+.scard:hover{transform:translateX(7px)}
+.scard.sel{background:var(--lime)}
+.scard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;opacity:.6;margin-bottom:6px;text-transform:uppercase}
+.scard .ti{font-weight:900;text-transform:uppercase;font-size:clamp(14px,1.5vw,20px);letter-spacing:-.02em;line-height:1.05}
+.phone{border:3px solid var(--ink);border-radius:26px;padding:13px;background:var(--ink);height:min(432px,46vh);display:flex;flex-direction:column}
+.phone .scr{background:var(--paper);border-radius:15px;flex:1;padding:17px 15px;overflow:auto;font-size:12.5px;line-height:1.62}
+.phone .scr .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;opacity:.5;margin:11px 0 4px}
+.phone .scr .lab:first-child{margin-top:0}
+.phone .scr p{margin-bottom:8px}
+.phone .scr .oc{font-weight:600}
+
+/* pricing */
+.plist{margin-top:20px;max-width:800px}
+.pline{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid rgba(11,11,12,.17);padding:8.5px 0;gap:16px}
+.pline .n{font-size:clamp(13px,1.32vw,17.5px)}
+.pline .v{font-family:var(--mono);font-size:clamp(12px,1.2vw,15px);white-space:nowrap}
+.ptotal{display:flex;justify-content:space-between;align-items:baseline;padding:17px 0 0;margin-top:5px;border-top:4px solid var(--ink);gap:16px}
+.ptotal .n{font-weight:900;text-transform:uppercase;font-size:clamp(15px,1.8vw,24px);letter-spacing:-.02em}
+.ptotal .v{font-weight:900;font-size:clamp(24px,3.4vw,48px);letter-spacing:-.04em;line-height:1}
+.strike{position:relative;opacity:.42}
+.strike::after{content:'';position:absolute;left:-2%;right:-2%;top:52%;height:4px;background:var(--ink)}
+
+/* offer */
+.offer{margin-top:26px;border:3px solid var(--ink);max-width:1000px;background:rgba(255,255,255,.55)}
+.offer .top{background:var(--lime);border-bottom:3px solid var(--ink);padding:22px 26px;display:flex;
+  justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px}
+.offer .price{font-weight:900;font-size:clamp(42px,7.2vw,104px);line-height:.84;letter-spacing:-.055em}
+.offer .per{font-family:var(--mono);font-size:11px;letter-spacing:.17em;text-transform:uppercase;text-align:right;line-height:2}
+.offer .inc{padding:20px 26px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:11px 26px}
+.offer .inc div{font-size:13.5px;display:flex;gap:9px;align-items:flex-start;line-height:1.45}
+.offer .inc div::before{content:'';width:9px;height:9px;background:var(--lime);border:1.5px solid var(--ink);flex:none;margin-top:5px}
+.perunit{display:flex;gap:34px;margin-top:20px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase}
+.perunit b{font-family:var(--disp);font-size:22px;font-weight:900;letter-spacing:-.03em;display:block;margin-bottom:3px}
+
+/* calculator */
+.calc{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:22px;align-items:start}
+@media(max-width:940px){.calc{grid-template-columns:1fr;gap:22px}}
+.slider{margin-bottom:19px}
+.slider .lab{display:flex;justify-content:space-between;align-items:baseline;
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;margin-bottom:9px}
+.slider .lab b{font-family:var(--disp);font-size:21px;font-weight:900;letter-spacing:-.03em}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:rgba(11,11,12,.22);outline:none;cursor:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:23px;height:23px;background:var(--lime);
+  border:2.5px solid var(--ink);cursor:none;border-radius:0}
+input[type=range]::-moz-range-thumb{width:23px;height:23px;background:var(--lime);border:2.5px solid var(--ink);border-radius:0;cursor:none}
+.result{border:3px solid var(--ink);padding:24px 26px;background:rgba(255,255,255,.55)}
+.result .rrow{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;
+  border-bottom:1px solid rgba(11,11,12,.15);gap:14px}
+.result .rrow:last-of-type{border-bottom:none}
+.result .rk{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+.result .rv{font-weight:900;font-size:clamp(17px,2vw,27px);letter-spacing:-.03em}
+.result .hero{background:var(--lime);margin:15px -26px -24px;padding:17px 26px;border-top:3px solid var(--ink);
+  display:flex;justify-content:space-between;align-items:baseline;gap:14px}
+.result .hero .rv{font-size:clamp(28px,4vw,50px)}
+.calcnote{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;opacity:.55;margin-top:15px;line-height:1.75}
+
+/* close */
+.next{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:2px;margin-top:30px;max-width:1080px}
+.next .nx{border-top:4px solid var(--lime);padding:15px 16px 18px 0}
+.next .nx .n{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;opacity:.5;margin-bottom:9px}
+.next .nx .h{font-weight:900;text-transform:uppercase;font-size:clamp(14px,1.5vw,19px);line-height:1.05;letter-spacing:-.02em;margin-bottom:7px}
+.next .nx .d{font-size:12.5px;line-height:1.5;opacity:.8}
+.sig{margin-top:34px;font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;opacity:.62;line-height:2}
+
+/* cover */
+.cover-meta{display:flex;gap:38px;margin-top:34px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10px;letter-spacing:.17em;text-transform:uppercase;opacity:.66;line-height:2}
+.hint{position:fixed;left:50%;bottom:4.4vh;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;opacity:.4;z-index:700}
+@media(max-width:760px){.hint{display:none}}
+</style>
+</head>
+<body>
+
+<div id="bar"></div>
+<div id="wipe"></div>
+<div id="cur"></div>
+<div id="curdot"></div>
+<div class="brand">VESSEL ARCHIVE</div>
+
+<!-- 1 COVER -->
+<section class="slide on">
+  <div class="eyebrow"><span class="num">01</span> Prepared for Nas Chaudhry · August 2026</div>
+  <h1 data-h>AAA AUTO<br>RECYCLING.<br><span class="cst">Here's the whole plan.</span></h1>
+  <div class="cover-meta">
+    <div>42130 COUNTY RD 25<br>WOODLAND, CA</div>
+    <div>NINE YEARS<br>ACTIVE SINCE 2017</div>
+    <div>4.1 STARS<br>125 REVIEWS</div>
+    <div>PREPARED BY<br>ANTONIE &amp; TEO</div>
+  </div>
+</section>
+
+<!-- 2 YOU ALREADY WON -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">02</span> Where you actually stand</div>
+  <h1 data-h>YOU ALREADY WON<br><span class="cst">the hard part.</span></h1>
+  <p class="sub">Nine years in, 125 people have rated you. You are the highest rated dismantler in Woodland, and you are open a day your closest competitor is not. Almost nobody outside your customer list knows either of those things.</p>
+  <div class="stats">
+    <div class="sblock hi"><div class="big" data-c="4.1" data-dec="1">0</div><div class="cap">Your Google rating</div></div>
+    <div class="sblock"><div class="big" data-c="3.1" data-dec="1">0</div><div class="cap">West Coast Auto Dismantling<br>Two miles away</div></div>
+    <div class="sblock"><div class="big" data-c="125">0</div><div class="cap">Reviews you have earned</div></div>
+    <div class="sblock"><div class="big" data-c="88">0</div><div class="cap">Of them are five star</div></div>
+    <div class="sblock hi"><div class="big" data-c="0">0</div><div class="cap">Places you say any of this</div></div>
+  </div>
+</section>
+
+<!-- 3 LEAKS -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">03</span> Every asset, honestly graded</div>
+  <h1 data-h>SIX LEAKS.<br><span class="cst">All fixed in thirty days.</span></h1>
+  <div class="rows">
+    <div class="row"><div><div class="lbl">The website on your Yelp listing</div><div class="det">info.aaaautorecyclingllc.com returns error 500. Every click goes nowhere.</div></div><span class="chip dead">Dead</span></div>
+    <div class="row"><div><div class="lbl">Your Google ad copy</div><div class="det">Running right now. Tells people you "mostly" pay.</div></div><span class="chip dead">Dead</span></div>
+    <div class="row"><div><div class="lbl">Tracking on your websites</div><div class="det">No Meta pixel on either site. Nothing you spend can be measured or retargeted.</div></div><span class="chip dead">Dead</span></div>
+    <div class="row"><div><div class="lbl">Instagram and TikTok</div><div class="det">No accounts exist. Facebook has 20 followers and reviews turned off.</div></div><span class="chip dead">Dead</span></div>
+    <div class="row"><div><div class="lbl">Your search listing for used parts</div><div class="det">No meta description, so Google prints your own typo: "Used Auo Parts."</div></div><span class="chip weak">Weak</span></div>
+    <div class="row"><div><div class="lbl">Three websites, none finished</div><div class="det">One has tracking and no contact form. One has a form and no tracking. One is dead.</div></div><span class="chip weak">Weak</span></div>
+    <div class="row"><div><div class="lbl">Your reputation</div><div class="det">4.1 from 125. Best in the market. Not marked up anywhere Google can read it.</div></div><span class="chip strong">Strong</span></div>
+    <div class="row"><div><div class="lbl">Your inventory system</div><div class="det">Live and searchable on car-part.com. Real infrastructure most yards do not have.</div></div><span class="chip strong">Strong</span></div>
+  </div>
+  <div class="summary">Four dead, two weak, two strong. Everything graded dead is a switch nobody has turned on yet.</div>
+</section>
+
+<!-- 4 THE AD -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">04</span> The money you are already spending</div>
+  <h1 data-h>YOU'RE ALREADY<br><span class="cst">paying for this.</span></h1>
+  <div class="adbox">
+    <span class="tag">Live on Google today</span>
+    <div class="sp">Sponsored</div>
+    <div class="headline">AAA Auto Recycling llc</div>
+    <div class="url">4.1 (125) · Junkyard · 42130 County Road 25</div>
+    <div class="copy">salvage cars - We Pick Up Your Junk Cars Free Of Cost <mark>Mostly We Pay</mark> For Your junk Cars. we pay up<mark>to$1500</mark></div>
+  </div>
+  <p class="adnote">This is your ad, word for word, running right now. You are paying Google to tell strangers that you <em>usually</em> pay for cars. Your 4.1 rating, your nine years, and your free towing are not mentioned. We are not asking you to start a budget. We are asking to stop spending the one you have on this.</p>
+</section>
+
+<!-- 5 POSITIONING -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">05</span> The positioning, written by a customer</div>
+  <h1 data-h>THE ONES<br><span class="cst">you drive for.</span></h1>
+  <div class="two">
+    <div>
+      <div class="bigq">This industry is full of D-Bags and I have talked to a lot of them.</div>
+      <div class="attrib">Richard C · Five stars · Drove 1,000 miles round trip from San Diego for one engine</div>
+      <p class="sub" style="margin-top:20px">Everyone who has ever needed a used transmission walks in expecting to get taken. That suspicion is the whole category, and it is the thing you already beat. Nobody drives five hundred miles each way for a yard they do not trust. That is the campaign.</p>
+    </div>
+    <div>
+      <div class="theme"><div class="t">They answer</div><div class="q">"They answer phones which is great."</div></div>
+      <div class="theme"><div class="t">They prove it first</div><div class="q">"They sent me the VIN and pictures of the engine, strapped it to a pallet, wrapped it in plastic, ready in hours."</div></div>
+      <div class="theme"><div class="t">They show up where others won't</div><div class="q">"Within a week they removed all 7 cars for me. I could not be happier."</div></div>
+    </div>
+  </div>
+  <div class="marq"><div class="track">
+    <q>Great people and really helpful staff. Low prices and huge inventory</q>
+    <q>Great price and excellent service</q>
+    <q>Nas, Mario and Joe are the best of the business</q>
+    <q>Within 30 minutes they came over to tow my car. Money sent instantly</q>
+    <q>Always friendly and good service. Highly recommend</q>
+    <q>Best price in town. Very easy to work with</q>
+    <q>Great people and really helpful staff. Low prices and huge inventory</q>
+    <q>Great price and excellent service</q>
+    <q>Nas, Mario and Joe are the best of the business</q>
+    <q>Within 30 minutes they came over to tow my car. Money sent instantly</q>
+    <q>Always friendly and good service. Highly recommend</q>
+    <q>Best price in town. Very easy to work with</q>
+  </div></div>
+</section>
+
+<!-- 6 SPANISH -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">06</span> The lane nobody is in</div>
+  <h1 data-h>THIRTY EIGHT PERCENT<br><span class="cst">of your city.</span></h1>
+  <p class="sub">Woodland is 37.8 percent Hispanic. When someone here searches <em>yonke</em> or <em>autopartes usadas</em>, Google cannot find a single local yard with a page that uses those words. Not you, not West Coast, not Anderson's. The customer is typing and nobody has answered.</p>
+  <div class="stats">
+    <div class="sblock hi"><div class="big" data-c="37.8" data-dec="1" data-suf="%">0</div><div class="cap">Of Woodland is Hispanic</div></div>
+    <div class="sblock"><div class="big" data-c="0">0</div><div class="cap">Local yards with Spanish pages</div></div>
+    <div class="sblock"><div class="big" data-c="0">0</div><div class="cap">Spanish ads running in this market</div></div>
+    <div class="sblock hi"><div class="big" data-c="4">0</div><div class="cap">Of your videos each month<br>shot in Spanish</div></div>
+  </div>
+  <p class="sub">Half your organic videos, one full ad set, and a Spanish section on the site. This is the cheapest ground in the entire plan and it is completely unoccupied.</p>
+</section>
+
+<!-- 7 THE LOOP -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">07</span> How the whole thing works</div>
+  <h1 data-h>ONE LOOP.<br><span class="cst">Not five services.</span></h1>
+  <div class="loop">
+    <div class="step"><div class="n">01</div><div class="h">Fix the plumbing</div><div class="d">One website, pixeled and tracked. Dead links killed. Google profile filled out. Your phone stops dropping people.</div></div>
+    <div class="step"><div class="n">02</div><div class="h">Shoot the yard</div><div class="d">Two mornings a month. Eight videos. Half in Spanish. Parts, teardowns, and the stories your reviews already tell.</div></div>
+    <div class="step"><div class="n">03</div><div class="h">Run the ads</div><div class="d">Google rewritten, Meta started from zero. Video creative instead of the text ad you have now.</div></div>
+    <div class="step"><div class="n">04</div><div class="h">Catch the call</div><div class="d">Missed calls text back automatically. Tow pickups get a confirmed window. Nobody sits waiting on a voicemail.</div></div>
+    <div class="step"><div class="n">05</div><div class="h">Bank the review</div><div class="d">Every happy customer gets asked. 4.1 climbs on volume alone, and the next month's ads get cheaper.</div></div>
+  </div>
+  <div class="arrowloop">More reviews make the ads cheaper, which buys more shoots <span>&rarr;&rarr;&rarr;</span></div>
+</section>
+
+<!-- 8 SCRIPTS -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">08</span> Three of the eight, already written</div>
+  <h1 data-h>WE ALREADY WROTE<br><span class="cst">the first three.</span></h1>
+  <div class="scriptwrap">
+    <div class="scards" id="scards">
+      <div class="scard sel" data-s="0"><div class="k">Organic · 32 sec · Yard walk</div><div class="ti">What a car is actually worth</div></div>
+      <div class="scard" data-s="1"><div class="k">Ad · 24 sec · Straight to camera</div><div class="ti">Don't call the 800 number</div></div>
+      <div class="scard" data-s="2"><div class="k">Organic · 28 sec · Español</div><div class="ti">Se compran carros</div></div>
+    </div>
+    <div class="phone"><div class="scr" id="scr"></div></div>
+  </div>
+</section>
+
+<!-- 9 A LA CARTE -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">09</span> What this costs everywhere else</div>
+  <h1 data-h>PRICED<br><span class="cst">piece by piece.</span></h1>
+  <div class="plist">
+    <div class="pline"><span class="n">8 short form videos, shot and edited</span><span class="v">$4,000</span></div>
+    <div class="pline"><span class="n">Google Ads management</span><span class="v">$1,500</span></div>
+    <div class="pline"><span class="n">Meta Ads management</span><span class="v">$1,000</span></div>
+    <div class="pline"><span class="n">Website consolidation and landing page</span><span class="v">$1,200</span></div>
+    <div class="pline"><span class="n">Local SEO and Google profile</span><span class="v">$1,500</span></div>
+    <div class="pline"><span class="n">Review engine and missed call text back</span><span class="v">$500</span></div>
+    <div class="pline"><span class="n">Spanish localization</span><span class="v">$800</span></div>
+    <div class="ptotal"><span class="n">A la carte, every month</span><span class="v strike">$10,500</span></div>
+  </div>
+  <p class="sub">Hiring one videographer in California runs about $6,200 a month, and that person cannot run your ads, rewrite your site, or answer a missed call.</p>
+</section>
+
+<!-- 10 OFFER -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">10</span> The number</div>
+  <h1 data-h>THREE THOUSAND.<br><span class="cst">Everything included.</span></h1>
+  <div class="offer">
+    <div class="top">
+      <div class="price">$3,000</div>
+      <div class="per">Per month<br>Three month term<br>$9,000 total</div>
+    </div>
+    <div class="inc">
+      <div>8 videos a month, 4 of them in Spanish</div>
+      <div>Two shoot days, four to eight hours each</div>
+      <div>One website, built, hosted and pixeled</div>
+      <div>Google Ads rewritten and managed</div>
+      <div>Meta Ads built from zero</div>
+      <div>Local SEO and Google profile rebuilt</div>
+      <div>Review engine on every happy customer</div>
+      <div>Missed call text back on your main line</div>
+    </div>
+  </div>
+  <div class="perunit">
+    <div><b>$375</b>per video</div>
+    <div><b>$100</b>per day</div>
+    <div><b>2</b>mornings of your time per month</div>
+    <div><b>0</b>setup fees</div>
+  </div>
+  <p class="sub" style="margin-top:16px">Ad spend is billed straight to your card, never through us. Budget around $1,200 a month to start.</p>
+</section>
+
+<!-- 11 ROI -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">11</span> When it pays for itself</div>
+  <h1 data-h>BREAK EVEN ON<br><span class="cst">five parts sales.</span></h1>
+  <div class="calc">
+    <div>
+      <div class="slider">
+        <div class="lab"><span>Extra parts sales per month</span><b id="l1">8</b></div>
+        <input type="range" id="s1" min="0" max="30" value="8">
+      </div>
+      <div class="slider">
+        <div class="lab"><span>Average parts sale</span><b id="l2">$650</b></div>
+        <input type="range" id="s2" min="150" max="2500" step="50" value="650">
+      </div>
+      <div class="slider">
+        <div class="lab"><span>Extra junk cars per month</span><b id="l3">6</b></div>
+        <input type="range" id="s3" min="0" max="30" value="6">
+      </div>
+      <div class="slider">
+        <div class="lab"><span>Your margin per car</span><b id="l4">$300</b></div>
+        <input type="range" id="s4" min="50" max="1200" step="25" value="300">
+      </div>
+      <div class="calcnote">Move these to your real numbers. The math updates live.</div>
+    </div>
+    <div class="result">
+      <div class="rrow"><span class="rk">Added revenue per month</span><span class="rv" id="rmo">$0</span></div>
+      <div class="rrow"><span class="rk">Over the three month term</span><span class="rv" id="rterm">$0</span></div>
+      <div class="rrow"><span class="rk">What you pay us</span><span class="rv">$9,000</span></div>
+      <div class="rrow"><span class="rk">Break even at</span><span class="rv" id="rbe">0</span></div>
+      <div class="hero"><span class="rk">Return</span><span class="rv" id="rroi">0.0x</span></div>
+    </div>
+  </div>
+  <p class="calcnote">Built on parts, not scrap. One engine, one transmission, one hybrid battery. That is where your margin lives and it is the half of your business nobody online knows about.</p>
+</section>
+
+<!-- 12 CLOSE -->
+<section class="slide">
+  <div class="eyebrow"><span class="num">12</span> What happens next</div>
+  <h1 data-h>125 PEOPLE<br>ALREADY KNOW.<br><span class="cst">Let's tell the rest.</span></h1>
+  <div class="next">
+    <div class="nx"><div class="n">Week 1</div><div class="h">Sign and hand over access</div><div class="d">Domains, Google profile, ad account. We do the rest of the setup.</div></div>
+    <div class="nx"><div class="n">Week 2</div><div class="h">Plumbing live</div><div class="d">One site, pixel firing, dead links gone, phone catching missed calls.</div></div>
+    <div class="nx"><div class="n">Week 3</div><div class="h">First shoot day</div><div class="d">One morning at the yard. Four videos in English, four in Spanish.</div></div>
+    <div class="nx"><div class="n">Week 4</div><div class="h">Ads on</div><div class="d">Google rewritten, Meta launched, review engine running.</div></div>
+  </div>
+  <div class="sig">Three things from you: one decision maker, two mornings a month, and someone comfortable on camera.<br>Antonie &amp; Teo · Vessel Archive · Sacramento</div>
+</section>
+
+<div class="count"><span id="cnum">01</span> / 12</div>
+<div class="hint">Arrow keys, click, or swipe</div>
+<div class="nav">
+  <button id="prev" aria-label="Previous">&larr;</button>
+  <button id="next" aria-label="Next">&rarr;</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- scripts data ---------- */
+var SCRIPTS=[
+{
+ lab:'Organic · 32 sec · Yard walk',
+ body:[
+  ['Open · walking the row','"Everybody thinks a junk car is worth whatever the scale says. It isn\'t."'],
+  ['Beat 2 · stop at a car','"This one. Scrap weight, maybe three hundred bucks. But the converter is still on it, the transmission is good, and somebody needs that door tomorrow."'],
+  ['Beat 3 · to camera','"So we don\'t pay you scrap. We pay you what the car actually is. That\'s the whole difference."'],
+  ['Close','"AAA Auto Recycling, County Road 25. Bring it or we\'ll come get it."']
+ ]
+},
+{
+ lab:'Ad · 24 sec · Straight to camera',
+ body:[
+  ['Open · hard geo hook','"Woodland, Davis, West Sac. Got a car sitting in the driveway you\'re done with?"'],
+  ['Beat 2','"Don\'t call the 800 number you found online. That\'s a middleman. They buy your car, drive it to a yard twenty minutes away, and keep the difference."'],
+  ['Beat 3','"We\'re the yard. Same car, no middle guy, free tow, cash the day we pick it up."'],
+  ['Close · on screen','"AAA Auto Recycling. Woodland. 530-636-6665. Nine years, four point one stars, a hundred and twenty five reviews."']
+ ]
+},
+{
+ lab:'Organic · 28 sec · Español',
+ body:[
+  ['Open · a cámara','"¿Tienes un carro que ya no sirve? No lo dejes ahí."'],
+  ['Beat 2 · caminando el yarda','"Nosotros compramos carros chocados, descompuestos, sin motor. Con título o sin título, hablamos."'],
+  ['Beat 3','"Grúa gratis. Te pagamos el mismo día. Y si buscas partes usadas, tenemos miles aquí mismo."'],
+  ['Cierre','"AAA Auto Recycling, County Road 25 en Woodland. Aquí se habla español."']
+ ]
+}];
+
+function renderScript(i){
+  var s=SCRIPTS[i],h='';
+  for(var j=0;j<s.body.length;j++){
+    h+='<div class="lab">'+s.body[j][0]+'</div><p class="oc">'+s.body[j][1]+'</p>';
+  }
+  document.getElementById('scr').innerHTML=h;
+}
+renderScript(0);
+var cards=document.querySelectorAll('.scard');
+for(var i=0;i<cards.length;i++){
+  (function(c){
+    c.addEventListener('click',function(){
+      for(var k=0;k<cards.length;k++)cards[k].classList.remove('sel');
+      c.classList.add('sel');
+      renderScript(+c.getAttribute('data-s'));
+    });
+  })(cards[i]);
+}
+
+/* ---------- cursor ---------- */
+var cur=document.getElementById('cur'),dot=document.getElementById('curdot');
+var tx=window.innerWidth/2,ty=window.innerHeight/2,cx=tx,cy=ty;
+document.addEventListener('mousemove',function(e){
+  tx=e.clientX;ty=e.clientY;
+  dot.style.left=tx+'px';dot.style.top=ty+'px';
+  var t=e.target;
+  var hot=t.closest&&(t.closest('button')||t.closest('.scard')||t.closest('input[type=range]')||t.closest('.marq'));
+  cur.classList.toggle('hot',!!hot);
+});
+(function loop(){
+  cx+=(tx-cx)*.19;cy+=(ty-cy)*.19;
+  cur.style.left=cx+'px';cur.style.top=cy+'px';
+  requestAnimationFrame(loop);
+})();
+
+/* ---------- header stagger ---------- */
+function stagger(sec){
+  var h=sec.querySelector('h1[data-h]');
+  if(!h)return;
+  if(!h.dataset.split){
+    var html=h.innerHTML;
+    // wrap plain words, leave .cst span intact as one unit
+    var tmp=document.createElement('div');tmp.innerHTML=html;
+    var out='';
+    for(var i=0;i<tmp.childNodes.length;i++){
+      var n=tmp.childNodes[i];
+      if(n.nodeType===3){
+        var parts=n.textContent.split(/(\s+)/);
+        for(var p=0;p<parts.length;p++){
+          if(parts[p].trim()==='')out+=parts[p];
+          else out+='<span class="w">'+parts[p]+'</span>';
+        }
+      } else if(n.nodeName==='BR'){ out+='<br>';
+      } else { out+='<span class="w">'+n.outerHTML+'</span>'; }
+    }
+    h.innerHTML=out;
+    h.dataset.split='1';
+  }
+  var ws=h.querySelectorAll('.w');
+  for(var j=0;j<ws.length;j++){
+    ws[j].style.animation='none';
+    void ws[j].offsetWidth;
+    ws[j].style.animation='up .62s cubic-bezier(.2,.8,.2,1) forwards';
+    ws[j].style.animationDelay=(j*0.052)+'s';
+  }
+  fitCst(sec);
+}
+
+/* ---------- optical fit for the italic serif line ---------- */
+function fitCst(sec){
+  var blocky=sec.querySelector('h1[data-h]');
+  if(!blocky)return;
+  var cs=sec.querySelectorAll('.cst');
+  if(!cs.length)return;
+  var cv=document.createElement('canvas'),ctx=cv.getContext('2d');
+  var hs=getComputedStyle(blocky);
+  var px=parseFloat(hs.fontSize);
+  ctx.font='900 '+px+'px '+hs.fontFamily;
+  var capH;
+  try{
+    var m=ctx.measureText('H');
+    capH=(m.actualBoundingBoxAscent||px*0.72);
+  }catch(e){capH=px*0.72;}
+  for(var i=0;i<cs.length;i++){
+    var el=cs[i];
+    var es=getComputedStyle(el);
+    ctx.font='italic 400 '+px+'px '+es.fontFamily;
+    var xh;
+    try{
+      var mm=ctx.measureText('x');
+      xh=(mm.actualBoundingBoxAscent||px*0.48);
+    }catch(e2){xh=px*0.48;}
+    // aim: script x-height reads about 78% of blocky cap height
+    var target=capH*0.78;
+    var scale=target/xh;
+    if(!isFinite(scale)||scale<=0)scale=1;
+    scale=Math.max(0.72,Math.min(1.5,scale));
+    el.style.fontSize=(scale*100)+'%';
+  }
+}
+
+/* ---------- counters ---------- */
+function counters(sec){
+  var els=sec.querySelectorAll('[data-c]');
+  for(var i=0;i<els.length;i++){
+    (function(el){
+      var end=parseFloat(el.getAttribute('data-c'));
+      var dec=parseInt(el.getAttribute('data-dec')||'0',10);
+      var suf=el.getAttribute('data-suf')||'';
+      if(end===0){el.textContent='0'+suf;return;}
+      var t0=null,dur=1150;
+      function step(ts){
+        if(!t0)t0=ts;
+        var p=Math.min((ts-t0)/dur,1);
+        var e=1-Math.pow(1-p,3);
+        el.textContent=(end*e).toFixed(dec)+suf;
+        if(p<1)requestAnimationFrame(step);
+      }
+      el.textContent=(0).toFixed(dec)+suf;
+      requestAnimationFrame(step);
+    })(els[i]);
+  }
+}
+
+/* ---------- calculator ---------- */
+var FEE=9000;
+function money(n){return '$'+Math.round(n).toLocaleString('en-US');}
+function calc(){
+  var a=+document.getElementById('s1').value,
+      b=+document.getElementById('s2').value,
+      c=+document.getElementById('s3').value,
+      d=+document.getElementById('s4').value;
+  document.getElementById('l1').textContent=a;
+  document.getElementById('l2').textContent=money(b);
+  document.getElementById('l3').textContent=c;
+  document.getElementById('l4').textContent=money(d);
+  var mo=a*b+c*d, term=mo*3;
+  document.getElementById('rmo').textContent=money(mo);
+  document.getElementById('rterm').textContent=money(term);
+  document.getElementById('rroi').textContent=(term/FEE).toFixed(1)+'x';
+  var be=b>0?(FEE/3)/b:0;
+  document.getElementById('rbe').textContent=be>0?(be.toFixed(1)+' sales/mo'):'n/a';
+}
+var sl=['s1','s2','s3','s4'];
+for(var q=0;q<sl.length;q++){
+  document.getElementById(sl[q]).addEventListener('input',calc);
+}
+calc();
+
+/* ---------- navigation ---------- */
+var slides=document.querySelectorAll('.slide');
+var N=slides.length;
+var idx=0, animating=false, queued=0;
+var bar=document.getElementById('bar'),wipe=document.getElementById('wipe'),cnum=document.getElementById('cnum');
+
+function paint(){
+  for(var i=0;i<N;i++)slides[i].classList.toggle('on',i===idx);
+  bar.style.width=((idx+1)/N*100)+'%';
+  cnum.textContent=String(idx+1).padStart(2,'0');
+  stagger(slides[idx]);
+  counters(slides[idx]);
+}
+
+function go(delta){
+  var target=Math.max(0,Math.min(N-1,idx+delta));
+  if(target===idx)return;
+  idx=target;                 // synchronous index update
+  if(animating){queued++;return;}
+  animating=true;
+  wipe.classList.remove('go');
+  void wipe.offsetWidth;
+  wipe.classList.add('go');
+  setTimeout(function(){
+    paint();
+  },300);
+  setTimeout(function(){
+    animating=false;
+    if(queued){queued=0;paint();}
+  },640);
+}
+
+document.getElementById('next').addEventListener('click',function(){go(1)});
+document.getElementById('prev').addEventListener('click',function(){go(-1)});
+document.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(1)}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(-1)}
+  if(e.key==='Home'){go(-N)}
+  if(e.key==='End'){go(N)}
+});
+document.addEventListener('click',function(e){
+  if(e.target.closest('.nav'))return;
+  if(e.target.closest('.scard'))return;
+  if(e.target.closest('input'))return;
+  if(e.target.closest('.rows'))return;
+  if(e.target.closest('.marq'))return;
+  go(e.clientX>window.innerWidth*0.5?1:-1);
+});
+var wheelLock=false;
+document.addEventListener('wheel',function(e){
+  if(e.target.closest('.rows')||e.target.closest('.phone'))return;
+  if(wheelLock)return;
+  if(Math.abs(e.deltaY)<22)return;
+  wheelLock=true;
+  go(e.deltaY>0?1:-1);
+  setTimeout(function(){wheelLock=false},700);
+},{passive:true});
+var tsx=0;
+document.addEventListener('touchstart',function(e){tsx=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',function(e){
+  var dx=e.changedTouches[0].clientX-tsx;
+  if(Math.abs(dx)>52)go(dx<0?1:-1);
+},{passive:true});
+
+window.addEventListener('resize',function(){fitCst(slides[idx])});
+if(document.fonts&&document.fonts.ready){
+  document.fonts.ready.then(function(){fitCst(slides[idx])});
+}
+paint();
+})();
+</script>
+</body>
+</html>
